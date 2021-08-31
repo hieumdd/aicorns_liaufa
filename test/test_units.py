@@ -7,11 +7,11 @@ from .utils import process
 @pytest.mark.parametrize(
     "resource",
     [
-        # "LinkedinAccounts",
+        "LinkedinAccounts",
         # "CampaignContacts",
         # "CampaignInstances",
         # "LinkedinContacts",
-        "LinkedinSimpleMessenger",
+        # "LinkedinSimpleMessenger",
         # "Companies",
         # "LinkedinCounts",
         # "LinkedinContactsTags",

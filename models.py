@@ -1,7 +1,7 @@
 import os
 import sys
 import json
-import time
+import math
 from abc import ABCMeta, abstractmethod
 from datetime import datetime
 import asyncio
@@ -22,8 +22,11 @@ DATASET = "Liaufa"
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
+def transform_timestamp(ts):
+    if ts:
+        return datetime.strptime(ts, "%Y-%m-%dT%H:%M:%S%z").isoformat(timespec='seconds')
 
-def get_headers():
+async def get_headers():
     url = f"{BASE_URL}/token/"
     params = {
         "h": "https://app.aicorns.com",
@@ -32,14 +35,15 @@ def get_headers():
         "username": os.getenv("USERNAME"),
         "password": os.getenv("PWD"),
     }
-    with requests.post(
-        url,
-        params=params,
-        json=payload,
-        headers={**CONTENT_TYPE},
-    ) as r:
-        res = r.json()
-    access_token = res.get("access")
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+            url,
+            params=params,
+            json=payload,
+            headers={**CONTENT_TYPE},
+        ) as r:
+            res = await r.json()
+    access_token = res["access"]
     return {
         **CONTENT_TYPE,
         "Authorization": f"Bearer {access_token}",
@@ -67,7 +71,7 @@ class SimpleGetter(Getter):
             "page_size": self.page_size,
             "page": 1,
         }
-        headers = get_headers()
+        headers = asyncio.run(get_headers())
         with requests.Session() as session:
             while params["page"] < MAX_ITERATION:
                 with session.get(
@@ -78,7 +82,7 @@ class SimpleGetter(Getter):
                     if r.status_code == 404:
                         break
                     elif r.status_code == 401:
-                        headers = get_headers()
+                        headers = asyncio.run(get_headers())
                         continue
                     else:
                         res = r.json()
@@ -102,11 +106,12 @@ class AsyncGetter(Getter):
         async with aiohttp.ClientSession(
             connector=connector, timeout=timeout
         ) as session:
-            headers = get_headers()
-            # count = await self._get_count(session, url, headers)
+            headers = await get_headers()
+            count = await self._get_count(session, url, headers)
+            calls_needed = math.ceil(count / self.page_size)
             tasks = [
                 asyncio.create_task(self._get_one(session, url, headers, i))
-                for i in range(1, 200)
+                for i in range(1, calls_needed + 1)
             ]
             rows = await asyncio.gather(*tasks)
         rows = [item for sublist in rows for item in sublist]
@@ -128,14 +133,15 @@ class AsyncGetter(Getter):
             "page": i,
             "ordering": self.ordering_key,
         }
+        _headers = headers
         while True:
             async with session.get(
                 url,
                 params=params,
-                headers=headers,
+                headers=_headers,
             ) as r:
                 if r.status == 401:
-                    headers = get_headers()
+                    _headers = await get_headers()
                     continue
                 elif r.status == 404:
                     results = []
@@ -147,7 +153,6 @@ class AsyncGetter(Getter):
         results = [{
             **result,
             "_page": i,
-            # "_batched_at": NOW.isoformat(time_spec="seconds")
         } for result in results]
         return results
 
@@ -194,6 +199,11 @@ class Liaufa(metaclass=ABCMeta):
     def ordering_key(self):
         pass
 
+    @property
+    @abstractmethod
+    def p_key(self):
+        pass
+
     def __init__(self):
         pass
 
@@ -213,13 +223,33 @@ class Liaufa(metaclass=ABCMeta):
                 schema=schema,
             ),
         ).result()
-        # with open(f"export/{self.table}.json", "w") as f:
-        #     json.dump(rows, f)
+
+    def update(self):
+        incre_key = getattr(self, "incre_key", None)
+        incre_key = f"ORDER BY {incre_key} DESC" if incre_key else ""
+        query = f"""
+        CREATE OR REPLACE TABLE {DATASET}.{self.table} AS
+        SELECT * EXCEPT (row_num)
+        FROM (
+            SELECT
+                *,
+                ROW_NUMBER() OVER (PARTITION BY {','.join(self.p_key)} {incre_key}) AS row_num
+            FROM {DATASET}._stage_{self.table}
+        ) WHERE row_num = 1"""
+        BQ_CLIENT.query(query).result()
 
     def run(self):
         rows = self.getter.get()
-        rows = self._transform(rows)
-        self.load(rows)
+        response = {
+            "table": self.table,
+            "num_processed": len(rows),
+        }
+        if len(rows) > 0:
+            rows = self._transform(rows)
+            loads = self.load(rows)
+            self.update()
+            response['output_rows'] = loads.output_rows
+        return response
 
 
 class LinkedinAccount(Liaufa):
@@ -227,6 +257,8 @@ class LinkedinAccount(Liaufa):
     endpoint = "linkedin/accounts/"
     page_size = 1000
     ordering_key = None
+    p_key = ['id']
+
 
     def __init__(self):
         self.getter = SimpleGetter(self.endpoint, self.page_size)
@@ -235,7 +267,7 @@ class LinkedinAccount(Liaufa):
     def _transform(self, rows):
         return [
             {
-                "id": row.get("id"),
+                "id": row["id"],
                 "name": row.get("name"),
                 "company": row.get("company"),
                 "limit_connection_requests_daily": row[
@@ -342,6 +374,8 @@ class LinkedinSimpleMessenger(Liaufa):
     endpoint = "linkedin/simple-messenger/"
     page_size = 100
     ordering_key = "created"
+    p_key = ["id"]
+    incre_key = "updated"
 
     def __init__(self):
         self.getter = AsyncGetter(self.endpoint, self.page_size, self.ordering_key)
@@ -350,7 +384,7 @@ class LinkedinSimpleMessenger(Liaufa):
     def _transform(self, rows):
         return [
             {
-                "id": row.get("id"),
+                "id": row["id"],
                 "contact_status": row.get("contact_status"),
                 "conversation_status": row.get("conversation_status"),
                 "contact": {
@@ -364,10 +398,10 @@ class LinkedinSimpleMessenger(Liaufa):
                 if row.get("li_account")
                 else {},
                 "has_new_messages": row.get("has_new_messages"),
-                "connected_at": row.get("connected_at"),
-                "invited_at": row.get("invited_at"),
-                "created": row.get("created"),
-                "updated": row.get("updated"),
+                "connected_at": transform_timestamp(row.get("connected_at")),
+                "invited_at": transform_timestamp(row.get("invited_at")),
+                "created": transform_timestamp(row.get("created")),
+                "updated": transform_timestamp(row.get("updated")),
             }
             for row in rows
         ]
