@@ -1,11 +1,7 @@
-import os
-
 import pytest
 
-from models import get_headers
 from .utils import process
 
-# HEADERS = get_headers()
 
 
 @pytest.mark.parametrize(
@@ -14,8 +10,8 @@ from .utils import process
         "LinkedinAccounts",
         "CampaignContacts",
         "CampaignInstances",
-        # "LinkedinContacts",
-        # "LinkedinSimpleMessenger",
+        "LinkedinContacts",
+        "LinkedinSimpleMessenger",
         "Companies",
         "LinkedinCounts",
         "LinkedinContactsTags",
@@ -26,6 +22,5 @@ from .utils import process
 def test_auto(resource):
     data = {
         "resource": resource,
-        # "headers": HEADERS,
     }
     process(data)
