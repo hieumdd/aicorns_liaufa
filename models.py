@@ -1,7 +1,9 @@
 import os
+import sys
 import json
 import time
 from abc import ABCMeta, abstractmethod
+from datetime import datetime
 import asyncio
 
 import requests
@@ -12,8 +14,13 @@ BASE_URL = "https://api.liaufa.com/api/v1"
 CONTENT_TYPE = {"Content-Type": "application/json"}
 MAX_ITERATION = 50
 
+NOW = datetime.utcnow()
+
 BQ_CLIENT = bigquery.Client()
 DATASET = "Liaufa"
+
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 
 def get_headers():
@@ -81,7 +88,7 @@ class SimpleGetter(Getter):
 
 
 class AsyncGetter(Getter):
-    def __init__(self, endpoint, page_size, ordering_key):
+    def __init__(self, endpoint, page_size, ordering_key=None):
         super().__init__(endpoint, page_size)
         self.ordering_key = ordering_key
 
@@ -99,7 +106,7 @@ class AsyncGetter(Getter):
             # count = await self._get_count(session, url, headers)
             tasks = [
                 asyncio.create_task(self._get_one(session, url, headers, i))
-                for i in range(1, 51)
+                for i in range(1, 200)
             ]
             rows = await asyncio.gather(*tasks)
         rows = [item for sublist in rows for item in sublist]
@@ -137,6 +144,11 @@ class AsyncGetter(Getter):
                     res = await r.json()
                     results = res["results"]
                     break
+        results = [{
+            **result,
+            "_page": i,
+            # "_batched_at": NOW.isoformat(time_spec="seconds")
+        } for result in results]
         return results
 
 
@@ -190,19 +202,19 @@ class Liaufa(metaclass=ABCMeta):
         pass
 
     def load(self, rows):
-        # with open(f"configs/{self.table}.json", "r") as f:
-        #     schema = json.load(f)["schema"]
-        # return BQ_CLIENT.load_table_from_json(
-        #     rows,
-        #     f"{DATASET}._stage_{self.table}",
-        #     job_config=bigquery.LoadJobConfig(
-        #         create_disposition="CREATE_IF_NEEDED",
-        #         write_disposition="WRITE_APPEND",
-        #         schema=schema,
-        #     ),
-        # ).result()
-        with open(f"export/{self.table}.json", "w") as f:
-            json.dump(rows, f)
+        with open(f"configs/{self.table}.json", "r") as f:
+            schema = json.load(f)["schema"]
+        return BQ_CLIENT.load_table_from_json(
+            rows,
+            f"{DATASET}._stage_{self.table}",
+            job_config=bigquery.LoadJobConfig(
+                create_disposition="CREATE_IF_NEEDED",
+                write_disposition="WRITE_APPEND",
+                schema=schema,
+            ),
+        ).result()
+        # with open(f"export/{self.table}.json", "w") as f:
+        #     json.dump(rows, f)
 
     def run(self):
         rows = self.getter.get()
@@ -329,7 +341,7 @@ class LinkedinSimpleMessenger(Liaufa):
     table = "LinkedinSimpleMessenger"
     endpoint = "linkedin/simple-messenger/"
     page_size = 100
-    ordering_key = "created_at"
+    ordering_key = "created"
 
     def __init__(self):
         self.getter = AsyncGetter(self.endpoint, self.page_size, self.ordering_key)
@@ -340,7 +352,7 @@ class LinkedinSimpleMessenger(Liaufa):
             {
                 "id": row.get("id"),
                 "contact_status": row.get("contact_status"),
-                "conversation_status": row.get("conversion_status"),
+                "conversation_status": row.get("conversation_status"),
                 "contact": {
                     "id": row.get("contact").get("id"),
                 }
@@ -354,7 +366,8 @@ class LinkedinSimpleMessenger(Liaufa):
                 "has_new_messages": row.get("has_new_messages"),
                 "connected_at": row.get("connected_at"),
                 "invited_at": row.get("invited_at"),
-                "created_at": row.get("created_at"),
+                "created": row.get("created"),
+                "updated": row.get("updated"),
             }
             for row in rows
         ]

@@ -1,0 +1,60 @@
+{
+    "schema":[
+        {
+            "name": "id",
+            "type": "INTEGER"
+        },
+        {
+            "name": "contact_status",
+            "type": "INTEGER"
+        },
+        {
+            "name": "conversation_status",
+            "type": "INTEGER"
+        },
+        {
+            "name": "contact",
+            "type": "record",
+            "fields": [
+                {
+                    "name": "id",
+                    "type": "INTEGER"
+                }
+            ]
+        },
+        {
+            "name": "li_account",
+            "type": "record",
+            "fields": [
+                {
+                    "name": "id",
+                    "type": "INTEGER"
+                }
+            ]
+        },
+        {
+            "name": "has_new_messages",
+            "type": "BOOLEAN"
+        },
+        {
+            "name": "connected_at",
+            "type": "TIMESTAMP"
+        },
+        {
+            "name": "invited_at",
+            "type": "TIMESTAMP"
+        },
+        {
+            "name": "created",
+            "type": "TIMESTAMP"
+        },
+        {
+            "name": "updated",
+            "type": "TIMESTAMP"
+        },
+        {
+            "name": "_page",
+            "type": "INTEGER"
+        }
+    ]
+}
