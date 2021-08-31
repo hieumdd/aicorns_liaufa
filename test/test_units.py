@@ -7,15 +7,15 @@ from .utils import process
 @pytest.mark.parametrize(
     "resource",
     [
-        "LinkedinAccounts",
-        "CampaignContacts",
-        "CampaignInstances",
-        "LinkedinContacts",
+        # "LinkedinAccounts",
+        # "CampaignContacts",
+        # "CampaignInstances",
+        # "LinkedinContacts",
         "LinkedinSimpleMessenger",
-        "Companies",
-        "LinkedinCounts",
-        "LinkedinContactsTags",
-        "Tags",
+        # "Companies",
+        # "LinkedinCounts",
+        # "LinkedinContactsTags",
+        # "Tags",
     ],
 )
 @pytest.mark.timeout(540)
