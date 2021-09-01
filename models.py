@@ -3,7 +3,7 @@ import sys
 import json
 import math
 from abc import ABCMeta, abstractmethod
-from datetime import datetime
+from datetime import datetime, timezone
 import asyncio
 
 import requests
@@ -22,11 +22,15 @@ DATASET = "Liaufa"
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-def transform_timestamp(ts):
-    if ts:
-        return datetime.strptime(ts, "%Y-%m-%dT%H:%M:%S%z").isoformat(timespec='seconds')
 
-async def get_headers():
+def transform_ts(ts):
+    if ts:
+        return datetime.strptime(ts, "%Y-%m-%dT%H:%M:%S%z").isoformat(
+            timespec="seconds"
+        )
+
+
+def get_headers():
     url = f"{BASE_URL}/token/"
     params = {
         "h": "https://app.aicorns.com",
@@ -35,14 +39,13 @@ async def get_headers():
         "username": os.getenv("USERNAME"),
         "password": os.getenv("PWD"),
     }
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
-            url,
-            params=params,
-            json=payload,
-            headers={**CONTENT_TYPE},
-        ) as r:
-            res = await r.json()
+    with requests.post(
+        url,
+        params=params,
+        json=payload,
+        headers={**CONTENT_TYPE},
+    ) as r:
+        res = r.json()
     access_token = res["access"]
     return {
         **CONTENT_TYPE,
@@ -51,9 +54,9 @@ async def get_headers():
 
 
 class Getter(metaclass=ABCMeta):
-    def __init__(self, endpoint, page_size):
-        self.endpoint = endpoint
-        self.page_size = page_size
+    def __init__(self, model):
+        self.endpoint = model.endpoint
+        self.page_size = model.page_size
 
     @abstractmethod
     def get(self):
@@ -91,10 +94,67 @@ class SimpleGetter(Getter):
         return rows
 
 
+class ReverseGetter(Getter):
+    def __init__(self, model):
+        super().__init__(model)
+        self.ordering_key = model.ordering_key
+
+    def get(self):
+        url = f"{BASE_URL}/{self.endpoint}"
+        reverse_stop = datetime(2021, 1, 1, tzinfo=timezone.utc)
+        headers = get_headers()
+        rows = []
+        with requests.Session() as session:
+            count = self._get_count(session, url, get_headers())
+            calls_needed = math.ceil(count / self.page_size)
+            params = {
+                "page_size": self.page_size,
+                "page": calls_needed,
+                "ordering": self.ordering_key,
+            }
+            params
+            while True:
+                with session.get(url, params=params, headers=headers) as r:
+                    if r.status_code == 404:
+                        print(404)
+                        break
+                    elif r.status_code == 401:
+                        headers = get_headers()
+                        continue
+                    else:
+                        res = r.json()
+                _rows = res.get("results")
+                rows.extend(_rows)
+                # print(len(rows))
+                print(len(rows), _rows[-1][self.ordering_key])
+                if (
+                    datetime.strptime(
+                        _rows[-1][self.ordering_key], "%Y-%m-%dT%H:%M:%S%z"
+                    )
+                    < reverse_stop
+                ):
+                    _rows
+                    print(123)
+                    break
+                else:
+                    params["page"] -= 1
+        return rows
+
+    def _get_count(self, session, url, headers):
+        params = {
+            "page_size": 1,
+            "page": 1,
+        }
+        with session.get(url, params=params, headers=headers) as r:
+            res = r.json()
+        count = res["count"]
+        return count
+
+
 class AsyncGetter(Getter):
-    def __init__(self, endpoint, page_size, ordering_key=None):
-        super().__init__(endpoint, page_size)
-        self.ordering_key = ordering_key
+    def __init__(self, model):
+        super().__init__(model)
+        self.ordering_key = model.ordering_key
 
     def get(self):
         url = f"{BASE_URL}/{self.endpoint}"
@@ -149,11 +209,15 @@ class AsyncGetter(Getter):
                 else:
                     res = await r.json()
                     results = res["results"]
+                    print(i)
                     break
-        results = [{
-            **result,
-            "_page": i,
-        } for result in results]
+        results = [
+            {
+                **result,
+                # "_page": i,
+            }
+            for result in results
+        ]
         return results
 
 
@@ -248,7 +312,7 @@ class Liaufa(metaclass=ABCMeta):
             rows = self._transform(rows)
             loads = self.load(rows)
             self.update()
-            response['output_rows'] = loads.output_rows
+            response["output_rows"] = loads.output_rows
         return response
 
 
@@ -257,8 +321,7 @@ class LinkedinAccount(Liaufa):
     endpoint = "linkedin/accounts/"
     page_size = 1000
     ordering_key = None
-    p_key = ['id']
-
+    p_key = ["id"]
 
     def __init__(self):
         self.getter = SimpleGetter(self.endpoint, self.page_size)
@@ -353,7 +416,7 @@ class LinkedinContacts(Liaufa):
     ordering_key = "created"
 
     def __init__(self):
-        self.getter = AsyncGetter(self.endpoint, self.page_size, self.ordering_key)
+        self.getter = ReverseGetter(self)
         super().__init__()
 
     def _transform(self, rows):
@@ -378,7 +441,7 @@ class LinkedinSimpleMessenger(Liaufa):
     incre_key = "updated"
 
     def __init__(self):
-        self.getter = AsyncGetter(self.endpoint, self.page_size, self.ordering_key)
+        self.getter = ReverseGetter(self)
         super().__init__()
 
     def _transform(self, rows):
@@ -398,10 +461,10 @@ class LinkedinSimpleMessenger(Liaufa):
                 if row.get("li_account")
                 else {},
                 "has_new_messages": row.get("has_new_messages"),
-                "connected_at": transform_timestamp(row.get("connected_at")),
-                "invited_at": transform_timestamp(row.get("invited_at")),
-                "created": transform_timestamp(row.get("created")),
-                "updated": transform_timestamp(row.get("updated")),
+                "connected_at": transform_ts(row.get("connected_at")),
+                "invited_at": transform_ts(row.get("invited_at")),
+                "created": transform_ts(row.get("created")),
+                "updated": transform_ts(row.get("updated")),
             }
             for row in rows
         ]
