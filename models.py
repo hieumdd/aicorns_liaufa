@@ -36,7 +36,7 @@ async def get_headers():
     }
     payload = {
         "username": os.getenv("USERNAME"),
-        "password": os.getenv("PWD"),
+        "password": os.getenv("API_PWD"),
     }
     async with aiohttp.ClientSession() as session:
         while True:
@@ -253,6 +253,8 @@ class Liaufa(metaclass=ABCMeta):
             return LinkedinContactsTags()
         elif resource == "Tags":
             return Tags()
+        else:
+            raise NotImplementedError(resource)
 
     @property
     @abstractmethod

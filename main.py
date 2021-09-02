@@ -3,7 +3,7 @@ import json
 
 from models import Liaufa
 
-# from broadcast import broadcast_email, broadcast_job
+from broadcast import broadcast
 
 
 def main(request):
@@ -13,7 +13,9 @@ def main(request):
     data = json.loads(base64.b64decode(data_bytes).decode("utf-8"))
     print(data)
 
-    if "resource" in data:
+    if "broadcast" in data:
+        results = broadcast()
+    elif "resource" in data:
         job = Liaufa.factory(
             data["resource"],
         )
