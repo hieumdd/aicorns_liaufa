@@ -3,7 +3,7 @@ import sys
 import json
 import math
 from abc import ABCMeta, abstractmethod
-from datetime import datetime, timezone
+from datetime import datetime
 import asyncio
 
 import requests
@@ -220,6 +220,7 @@ class AsyncGetter(Getter):
                 else:
                     res = await r.json()
                     results = res["results"]
+                    print(i)
                     break
         results = [
             {
@@ -429,20 +430,23 @@ class LinkedinContacts(Liaufa):
     table = "LinkedinContacts"
     endpoint = "linkedin/contacts/"
     page_size = 100
-    ordering_key = "created"
+    p_key = ["id"]
+    ordering_key = "updated"
 
     def __init__(self):
-        self.getter = ReverseGetter(self)
+        self.getter = AsyncGetter(self)
         super().__init__()
 
     def _transform(self, rows):
         return [
             {
-                "id": row.get("id"),
+                "id": row["id"],
                 "name": row.get("name"),
                 "company_name": row.get("company_name"),
                 "profile_link": row.get("profile_link"),
                 "email": row.get("email"),
+                "created": transform_ts(row.get("created")),
+                "updated": transform_ts(row.get("updated")),
             }
             for row in rows
         ]
@@ -454,11 +458,11 @@ class LinkedinSimpleMessenger(Liaufa):
     page_size = 100
     ordering_key = "updated"
     p_key = ["id"]
-    incre_key = "updated"
+    # incre_key = "updated"
 
     def __init__(self):
-        # self.getter = AsyncGetter(self)
-        self.getter = ReverseGetter(self)
+        self.getter = AsyncGetter(self)
+        # self.getter = ReverseGetter(self)
         super().__init__()
 
     def _transform(self, rows):

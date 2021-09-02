@@ -16,14 +16,13 @@ def main(request):
     if "resource" in data:
         job = Liaufa.factory(
             data["resource"],
-            # data["headers"],
         )
         results = job.run()
     else:
         raise NotImplementedError(data)
 
     response = {
-        "pipelines": "GA",
+        "pipelines": "Liaufa",
         "results": results,
     }
     print(response)
