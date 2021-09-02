@@ -1,0 +1,24 @@
+{
+    "schema": [
+        {
+            "name": "id",
+            "type": "INTEGER"
+        },
+        {
+            "name": "name",
+            "type": "STRING"
+        },
+        {
+            "name": "company",
+            "type": "INTEGER"
+        },
+        {
+            "name": "created",
+            "type": "TIMESTAMP"
+        },
+        {
+            "name": "updated",
+            "type": "TIMESTAMP"
+        }
+    ]
+}

@@ -51,10 +51,6 @@
         {
             "name": "updated",
             "type": "TIMESTAMP"
-        },
-        {
-            "name": "_page",
-            "type": "INTEGER"
         }
     ]
 }

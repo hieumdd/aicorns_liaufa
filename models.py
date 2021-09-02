@@ -15,6 +15,7 @@ CONTENT_TYPE = {"Content-Type": "application/json"}
 MAX_ITERATION = 50
 
 NOW = datetime.utcnow()
+TIMESTAMP_FORMAT = "%Y-%m-%dT%H:%M:%S%z"
 
 BQ_CLIENT = bigquery.Client()
 DATASET = "Liaufa"
@@ -25,12 +26,10 @@ if sys.platform == "win32":
 
 def transform_ts(ts):
     if ts:
-        return datetime.strptime(ts, "%Y-%m-%dT%H:%M:%S%z").isoformat(
-            timespec="seconds"
-        )
+        return datetime.strptime(ts, TIMESTAMP_FORMAT).isoformat(timespec="seconds")
 
 
-def get_headers():
+async def get_headers():
     url = f"{BASE_URL}/token/"
     params = {
         "h": "https://app.aicorns.com",
@@ -39,14 +38,20 @@ def get_headers():
         "username": os.getenv("USERNAME"),
         "password": os.getenv("PWD"),
     }
-    with requests.post(
-        url,
-        params=params,
-        json=payload,
-        headers={**CONTENT_TYPE},
-    ) as r:
-        res = r.json()
-    access_token = res["access"]
+    async with aiohttp.ClientSession() as session:
+        while True:
+            async with session.post(
+                url,
+                params=params,
+                json=payload,
+                headers={**CONTENT_TYPE},
+            ) as r:
+                if r.status == 429:
+                    asyncio.sleep(5)
+                    continue
+                res = await r.json()
+            access_token = res["access"]
+            break
     return {
         **CONTENT_TYPE,
         "Authorization": f"Bearer {access_token}",
@@ -98,14 +103,16 @@ class ReverseGetter(Getter):
     def __init__(self, model):
         super().__init__(model)
         self.ordering_key = model.ordering_key
+        self.table = model.table
 
     def get(self):
         url = f"{BASE_URL}/{self.endpoint}"
-        reverse_stop = datetime(2021, 1, 1, tzinfo=timezone.utc)
-        headers = get_headers()
+        reverse_stop = self._get_reverse_stop()
+        x = reverse_stop.strftime(TIMESTAMP_FORMAT)
+        headers = asyncio.run(get_headers())
         rows = []
         with requests.Session() as session:
-            count = self._get_count(session, url, get_headers())
+            count = self._get_count(session, url, headers)
             calls_needed = math.ceil(count / self.page_size)
             params = {
                 "page_size": self.page_size,
@@ -119,22 +126,17 @@ class ReverseGetter(Getter):
                         print(404)
                         break
                     elif r.status_code == 401:
-                        headers = get_headers()
+                        headers = asyncio.run(get_headers())
                         continue
                     else:
                         res = r.json()
                 _rows = res.get("results")
                 rows.extend(_rows)
-                # print(len(rows))
-                print(len(rows), _rows[-1][self.ordering_key])
                 if (
-                    datetime.strptime(
-                        _rows[-1][self.ordering_key], "%Y-%m-%dT%H:%M:%S%z"
-                    )
+                    datetime.strptime(_rows[-1][self.ordering_key], TIMESTAMP_FORMAT)
                     < reverse_stop
                 ):
                     _rows
-                    print(123)
                     break
                 else:
                     params["page"] -= 1
@@ -149,6 +151,14 @@ class ReverseGetter(Getter):
             res = r.json()
         count = res["count"]
         return count
+
+    def _get_reverse_stop(self):
+        query = f"""
+        SELECT MAX({self.ordering_key}) AS max_incre
+        FROM {DATASET}.{self.table}"""
+        rows = BQ_CLIENT.query(query).result()
+        result = [dict(row.items()) for row in rows][0]["max_incre"]
+        return result
 
 
 class AsyncGetter(Getter):
@@ -191,8 +201,9 @@ class AsyncGetter(Getter):
         params = {
             "page_size": self.page_size,
             "page": i,
-            "ordering": self.ordering_key,
         }
+        if self.ordering_key:
+            params["ordering"] = self.ordering_key
         _headers = headers
         while True:
             async with session.get(
@@ -209,7 +220,6 @@ class AsyncGetter(Getter):
                 else:
                     res = await r.json()
                     results = res["results"]
-                    print(i)
                     break
         results = [
             {
@@ -320,11 +330,11 @@ class LinkedinAccount(Liaufa):
     table = "LinkedinAccount"
     endpoint = "linkedin/accounts/"
     page_size = 1000
-    ordering_key = None
+    ordering_key = "id"
     p_key = ["id"]
 
     def __init__(self):
-        self.getter = SimpleGetter(self.endpoint, self.page_size)
+        self.getter = AsyncGetter(self)
         super().__init__()
 
     def _transform(self, rows):
@@ -357,18 +367,21 @@ class CampaignContacts(Liaufa):
     table = "CampaignContacts"
     endpoint = "campaign-contacts/"
     page_size = 10000
-    ordering_key = None
+    p_key = ["id"]
+    ordering_key = "updated"
 
     def __init__(self):
-        self.getter = SimpleGetter(self.endpoint, self.page_size)
+        self.getter = AsyncGetter(self)
         super().__init__()
 
     def _transform(self, rows):
         return [
             {
-                "id": row.get("id"),
+                "id": row["id"],
                 "contact": row.get("contact"),
                 "campaign_instance": row.get("campaign_instance"),
+                "created": transform_ts(row.get("created")),
+                "updated": transform_ts(row.get("updated")),
             }
             for row in rows
         ]
@@ -378,16 +391,17 @@ class CampaignInstances(Liaufa):
     table = "CampaignInstances"
     endpoint = "campaign-instances/"
     page_size = 1000
-    ordering_key = None
+    p_key = ["id"]
+    ordering_key = ["updated"]
 
     def __init__(self):
-        self.getter = SimpleGetter(self.endpoint, self.page_size)
+        self.getter = AsyncGetter(self)
         super().__init__()
 
     def _transform(self, rows):
         return [
             {
-                "id": row.get("id"),
+                "id": row["id"],
                 "name": row.get("name"),
                 "campaign": {
                     "id": row.get("campaign").get("id"),
@@ -395,7 +409,7 @@ class CampaignInstances(Liaufa):
                 if row.get("campaign")
                 else {},
                 "active": row.get("active"),
-                "start_at": row.get("start_at"),
+                "start_at": transform_ts(row.get("start_at")),
                 "li_account": row.get("li_account"),
                 "flag_connector": row.get("flag_connector"),
                 "company": row.get("company"),
@@ -404,6 +418,8 @@ class CampaignInstances(Liaufa):
                     "limit_follow_up_messages_daily"
                 ),
                 "campaign_type": row.get("campaign_type"),
+                "created": transform_ts(row.get("created")),
+                "updated": transform_ts(row.get("updated")),
             }
             for row in rows
         ]
@@ -436,11 +452,12 @@ class LinkedinSimpleMessenger(Liaufa):
     table = "LinkedinSimpleMessenger"
     endpoint = "linkedin/simple-messenger/"
     page_size = 100
-    ordering_key = "created"
+    ordering_key = "updated"
     p_key = ["id"]
     incre_key = "updated"
 
     def __init__(self):
+        # self.getter = AsyncGetter(self)
         self.getter = ReverseGetter(self)
         super().__init__()
 
@@ -474,20 +491,22 @@ class Companies(Liaufa):
     table = "Companies"
     endpoint = "companies/"
     page_size = 100
-    ordering_key = None
+    p_key = ["id"]
+    ordering_key = "updated"
 
     def __init__(self):
-        self.getter = SimpleGetter(self.endpoint, self.page_size, self.ordering_key)
-
+        self.getter = AsyncGetter(self)
         super().__init__()
 
     def _transform(self, rows):
         return [
             {
-                "id": row.get("id"),
+                "id": row["id"],
                 "name": row.get("name"),
                 "agency": row.get("agency"),
-                "li_accounts_count": row.get("li_accounts_count"),
+                "li_accounts_count": json.dumps(row.get("li_accounts_count")),
+                "created": transform_ts(row.get("created")),
+                "updated": transform_ts(row.get("updated")),
             }
             for row in rows
         ]
@@ -497,21 +516,24 @@ class LinkedinCounts(Liaufa):
     table = "LinkedinCounts"
     endpoint = "linkedin/counts/"
     page_size = 1000
-    ordering_key = None
+    p_key = ["id"]
+    ordering_key = "updated"
 
     def __init__(self):
-        self.getter = SimpleGetter(self.endpoint, self.page_size)
+        self.getter = AsyncGetter(self)
         super().__init__()
 
     def _transform(self, rows):
         return [
             {
-                "id": row.get("id"),
+                "id": row["id"],
                 "date": row.get("date"),
                 "type": row.get("type"),
                 "count": row.get("count"),
                 "li_account": row.get("li_account"),
                 "campaign_instance": row.get("campaign_instance"),
+                "created": transform_ts(row.get("created")),
+                "updated": transform_ts(row.get("updated")),
             }
             for row in rows
         ]
@@ -521,17 +543,17 @@ class LinkedinContactsTags(Liaufa):
     table = "LinkedinContactsTags"
     endpoint = "linkedin/contacts/tags/"
     page_size = 10
+    p_key = ["id"]
     ordering_key = None
 
     def __init__(self):
-        self.getter = SimpleGetter(self.endpoint, self.page_size)
-
+        self.getter = AsyncGetter(self)
         super().__init__()
 
     def _transform(self, rows):
         return [
             {
-                "id": row.get("id"),
+                "id": row["id"],
                 "tag": row.get("tag"),
                 "contact": row.get("contact"),
             }
@@ -543,18 +565,21 @@ class Tags(Liaufa):
     table = "Tags"
     endpoint = "tags/"
     page_size = 100
-    ordering_key = None
+    p_key = ["id"]
+    ordering_key = "updated"
 
     def __init__(self):
-        self.getter = SimpleGetter(self.endpoint, self.page_size)
+        self.getter = AsyncGetter(self)
         super().__init__()
 
     def _transform(self, rows):
         return [
             {
-                "id": row.get("id"),
+                "id": row["id"],
                 "name": row.get("name"),
                 "company": row.get("company"),
+                "created": transform_ts(row.get("created")),
+                "updated": transform_ts(row.get("updated")),
             }
             for row in rows
         ]

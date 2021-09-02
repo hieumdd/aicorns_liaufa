@@ -1,0 +1,16 @@
+{
+    "schema": [
+        {
+            "name": "id",
+            "type": "INTEGER"
+        },
+        {
+            "name": "tag",
+            "type": "INTEGER"
+        },
+        {
+            "name": "contact",
+            "type": "INTEGER"
+        }
+    ]
+}

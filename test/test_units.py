@@ -7,18 +7,18 @@ from .utils import process
 @pytest.mark.parametrize(
     "resource",
     [
-        # "LinkedinAccounts",
-        # "CampaignContacts",
-        # "CampaignInstances",
+        "LinkedinAccounts",
+        "CampaignContacts",
+        "CampaignInstances",
         # "LinkedinContacts",
-        "LinkedinSimpleMessenger",
-        # "Companies",
-        # "LinkedinCounts",
-        # "LinkedinContactsTags",
-        # "Tags",
+        # "LinkedinSimpleMessenger",
+        "Companies",
+        "LinkedinCounts",
+        "LinkedinContactsTags",
+        "Tags",
     ],
 )
-# @pytest.mark.timeout(540)
+@pytest.mark.timeout(0)
 def test_auto(resource):
     data = {
         "resource": resource,

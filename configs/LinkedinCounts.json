@@ -1,0 +1,36 @@
+{
+    "schema": [
+        {
+            "name": "id",
+            "type": "INTEGER"
+        },
+        {
+            "name": "date",
+            "type": "DATE"
+        },
+        {
+            "name": "type",
+            "type": "STRING"
+        },
+        {
+            "name": "count",
+            "type": "INTEGER"
+        },
+        {
+            "name": "li_account",
+            "type": "INTEGER"
+        },
+        {
+            "name": "campaign_instance",
+            "type": "INTEGER"
+        },
+        {
+            "name": "created",
+            "type": "TIMESTAMP"
+        },
+        {
+            "name": "updated",
+            "type": "TIMESTAMP"
+        }
+    ]
+}

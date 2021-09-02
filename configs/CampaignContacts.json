@@ -1,0 +1,24 @@
+{
+    "schema": [
+        {
+            "name": "id",
+            "type": "INTEGER"
+        },
+        {
+            "name": "contact",
+            "type": "INTEGER"
+        },
+        {
+            "name": "campaign_instance",
+            "type": "INTEGER"
+        },
+        {
+            "name": "created",
+            "type": "TIMESTAMP"
+        },
+        {
+            "name": "updated",
+            "type": "TIMESTAMP"
+        }
+    ]
+}
