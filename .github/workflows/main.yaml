@@ -12,7 +12,7 @@ env:
   REGION: us-central1
 
 jobs:
-  vuanem-ns:
+  etl:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
@@ -43,5 +43,5 @@ jobs:
         --platform=managed
         --service-account=${{ secrets.GCP_SA }}
         --region=${{ env.REGION }}
-        --timeout=900
+        --timeout=1800
         --set-env-vars=USERNAME=${{ secrets.USERNAME }},API_PWD=${{ secrets.API_PWD }}
