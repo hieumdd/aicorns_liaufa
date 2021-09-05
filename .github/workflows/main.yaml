@@ -7,7 +7,7 @@ on:
 
 env:
   PROJECT_ID: ${{ secrets.PROJECT_ID }}
-  TOPIC_ID: aicorns_liaufa
+  TOPIC_ID: liaufa
   SERVICE: aicorns-liaufa
   REGION: us-central1
 
