@@ -277,6 +277,20 @@ packaging = ">=14.3"
 proto-plus = ">=1.7.1"
 
 [[package]]
+name = "google-cloud-tasks"
+version = "2.5.1"
+description = "Cloud Tasks API API client library"
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[package.dependencies]
+google-api-core = {version = ">=1.26.0,<3.0.0dev", extras = ["grpc"]}
+grpc-google-iam-v1 = ">=0.12.3,<0.13dev"
+packaging = ">=14.3"
+proto-plus = ">=0.4.0"
+
+[[package]]
 name = "google-crc32c"
 version = "1.2.0"
 description = "A python wrapper of the C library 'Google CRC32C'"
@@ -706,7 +720,7 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "1.1"
 python-versions = "~3.9"
-content-hash = "1c7fec6bfc42cb7c4ff36cb5496240baad6184d49cc988f024be967505393afe"
+content-hash = "409f68684216236b679972242a478ce4a6774124f73e1c06b2e4bae461cf21eb"
 
 [metadata.files]
 aiohttp = [
@@ -823,6 +837,10 @@ google-cloud-core = [
 google-cloud-pubsub = [
     {file = "google-cloud-pubsub-2.8.0.tar.gz", hash = "sha256:2653c11615480141d359938a4efe9d131425171ec9cec26b6bf1c1231e1ac470"},
     {file = "google_cloud_pubsub-2.8.0-py2.py3-none-any.whl", hash = "sha256:255ec64e520a51547d6bf9e2574e4ddf08d295c87cffc689898414ee870ae421"},
+]
+google-cloud-tasks = [
+    {file = "google-cloud-tasks-2.5.1.tar.gz", hash = "sha256:e1038a1bb168adfdf1e65d5741b6d7e00f2ea48c5ef9e0a2c213e2972dba76ee"},
+    {file = "google_cloud_tasks-2.5.1-py2.py3-none-any.whl", hash = "sha256:75c1ee7869bfa725d75e57f2c3487934f4dc7766373d8854bac6a0572dd54032"},
 ]
 google-crc32c = [
     {file = "google-crc32c-1.2.0.tar.gz", hash = "sha256:258caf72c4ab03d91e593ed9f988c13c118754f5ce46d8bcbc40b109d14cb8b7"},

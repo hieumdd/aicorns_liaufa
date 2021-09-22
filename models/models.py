@@ -14,28 +14,32 @@ transform_ts = (
     else None
 )
 
-TABLES = [
-    "LinkedinAccounts",
-    "CampaignContacts",
-    "CampaignInstances",
-    "LinkedinContacts",
-    "LinkedinSimpleMessenger",
-    "Companies",
-    "LinkedinCounts",
-    "LinkedinContactsTags",
-    "Tags",
-]
+TABLES = {
+    "simple": [
+        "LinkedinAccounts",
+        "CampaignContacts",
+        "CampaignInstances",
+        "Companies",
+        "LinkedinCounts",
+        "LinkedinContactsTags",
+        "Tags",
+    ],
+    "reverse": [
+        # "LinkedinContacts",
+        "LinkedinSimpleMessenger",
+    ],
+}
 
 
 class Liaufa(metaclass=ABCMeta):
     @staticmethod
-    def factory(resource):
+    def factory(table):
         try:
-            module = importlib.import_module(f"models.{resource}")
-            model = getattr(module, resource)
+            module = importlib.import_module(f"models.{table}")
+            model = getattr(module, table)
             return model()
         except (ImportError, AttributeError):
-            raise ValueError(resource)
+            raise ValueError(table)
 
     @property
     @abstractmethod
@@ -70,15 +74,19 @@ class Liaufa(metaclass=ABCMeta):
         pass
 
     def _load(self, rows):
-        output_rows = BQ_CLIENT.load_table_from_json(
-            rows,
-            f"{DATASET}._stage_{self.table}",
-            job_config=bigquery.LoadJobConfig(
-                create_disposition="CREATE_IF_NEEDED",
-                write_disposition="WRITE_APPEND",
-                schema=self.schema,
-            ),
-        ).result().output_rows
+        output_rows = (
+            BQ_CLIENT.load_table_from_json(
+                rows,
+                f"{DATASET}._stage_{self.table}",
+                job_config=bigquery.LoadJobConfig(
+                    create_disposition="CREATE_IF_NEEDED",
+                    write_disposition="WRITE_APPEND",
+                    schema=self.schema,
+                ),
+            )
+            .result()
+            .output_rows
+        )
         self._update()
         return output_rows
 

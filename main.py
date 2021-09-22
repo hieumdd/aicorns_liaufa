@@ -1,31 +1,19 @@
-import base64
-import json
-
 from models.models import Liaufa
-
-from broadcast import broadcast
+from tasks import create_task
 
 
 def main(request):
-    request_json = request.get_json()
-    message = request_json["message"]
-    data_bytes = message["data"]
-    data = json.loads(base64.b64decode(data_bytes).decode("utf-8"))
+    data = request.get_json()
     print(data)
 
-    if "broadcast" in data:
-        results = broadcast()
+    if "tasks" in data:
+        response = create_task()
     elif "resource" in data:
-        job = Liaufa.factory(
+        response = Liaufa.factory(
             data["resource"],
-        )
-        results = job.run()
+        ).run()
     else:
-        raise NotImplementedError(data)
+        raise ValueError(data)
 
-    response = {
-        "pipelines": "Liaufa",
-        "results": results,
-    }
     print(response)
     return response

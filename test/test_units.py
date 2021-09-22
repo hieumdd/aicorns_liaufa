@@ -1,25 +1,48 @@
 import pytest
+from unittest.mock import Mock
 
-from .utils import process
+from main import main
+from models.models import TABLES
 
 
+def process(data):
+    req = Mock(get_json=Mock(return_value=data), args=data)
+    res = main(req)
+    return res
 
-@pytest.mark.parametrize(
-    "resource",
-    [
-        "LinkedinAccounts",
-        "CampaignContacts",
-        "CampaignInstances",
-        "LinkedinContacts",
-        "LinkedinSimpleMessenger",
-        "Companies",
-        "LinkedinCounts",
-        "LinkedinContactsTags",
-        "Tags",
-    ],
-)
-def test_auto(resource):
+
+class TestPipelines:
+    def assert_pipelines(self, res):
+        assert res["num_processed"] >= 0
+        if res["num_processed"] > 0:
+            assert res["num_processed"] == res["output_rows"]
+
+    @pytest.mark.parametrize(
+        "table",
+        TABLES["simple"],
+    )
+    def test_simple(self, table):
+        data = {
+            "table": table,
+        }
+        res = process(data)
+        self.assert_pipelines(res)
+
+    @pytest.mark.parametrize(
+        "table",
+        TABLES["reverse"],
+    )
+    def test_reverse(self, table):
+        data = {
+            "table": table,
+        }
+        res = process(data)
+        self.assert_pipelines(res)
+
+
+def test_tasks():
     data = {
-        "resource": resource,
+        "tasks": "liaufa",
     }
-    process(data)
+    res = process(data)
+    assert res["tasks"] > 0
