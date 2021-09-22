@@ -1,7 +1,7 @@
 import base64
 import json
 
-from models import Liaufa
+from models.models import Liaufa
 
 from broadcast import broadcast
 
