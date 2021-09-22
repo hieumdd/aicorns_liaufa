@@ -7,7 +7,7 @@ from components.getter import SimpleGetter
 
 class Companies(Liaufa):
     getter = SimpleGetter
-    table = "Companies"
+    table = "companies"
     endpoint = "companies/"
     page_size = 100
     p_key = ["id"]

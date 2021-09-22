@@ -5,7 +5,7 @@ from components.getter import SimpleGetter
 
 class CampaignInstances(Liaufa):
     getter = SimpleGetter
-    table = "CampaignInstances"
+    table = "campaign-instances"
     endpoint = "campaign-instances/"
     page_size = 1000
     p_key = ["id"]

@@ -5,7 +5,7 @@ from components.getter import SimpleGetter
 
 class Tags(Liaufa):
     getter = SimpleGetter
-    table = "Tags"
+    table = "tags"
     endpoint = "tags/"
     page_size = 100
     p_key = ["id"]

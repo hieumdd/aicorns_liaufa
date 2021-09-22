@@ -4,7 +4,7 @@ from components.getter import SimpleGetter
 
 class LinkedinContactsTags(Liaufa):
     getter = SimpleGetter
-    table = "LinkedinContactsTags"
+    table = "linkedin_contacts_tags"
     endpoint = "linkedin/contacts/tags/"
     page_size = 10
     p_key = ["id"]

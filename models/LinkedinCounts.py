@@ -5,7 +5,7 @@ from components.getter import SimpleGetter
 
 class LinkedinCounts(Liaufa):
     getter = SimpleGetter
-    table = "LinkedinCounts"
+    table = "linkedin_counts"
     endpoint = "linkedin/counts/"
     page_size = 1000
     p_key = ["id"]

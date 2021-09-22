@@ -5,7 +5,7 @@ from components.getter import ReverseGetter
 
 class LinkedinContacts(Liaufa):
     getter = ReverseGetter
-    table = "LinkedinContacts"
+    table = "linkedin_contacts"
     endpoint = "linkedin/contacts/"
     page_size = 100
     p_key = ["id"]
