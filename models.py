@@ -23,10 +23,11 @@ DATASET = "Liaufa"
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-
-def transform_ts(ts):
-    if ts:
-        return datetime.strptime(ts, TIMESTAMP_FORMAT).isoformat(timespec="seconds")
+transform_ts = (
+    lambda x: datetime.strptime(x, TIMESTAMP_FORMAT).isoformat(timespec="seconds")
+    if x
+    else None
+)
 
 
 async def get_headers():
@@ -108,7 +109,6 @@ class ReverseGetter(Getter):
     def get(self):
         url = f"{BASE_URL}/{self.endpoint}"
         reverse_stop = self._get_reverse_stop()
-        x = reverse_stop.strftime(TIMESTAMP_FORMAT)
         headers = asyncio.run(get_headers())
         rows = []
         with requests.Session() as session:
@@ -123,7 +123,6 @@ class ReverseGetter(Getter):
             while True:
                 with session.get(url, params=params, headers=headers) as r:
                     if r.status_code == 404:
-                        print(404)
                         break
                     elif r.status_code == 401:
                         headers = asyncio.run(get_headers())
@@ -171,7 +170,7 @@ class AsyncGetter(Getter):
         return asyncio.run(self._get(url))
 
     async def _get(self, url):
-        connector = aiohttp.TCPConnector(limit=20)
+        connector = aiohttp.TCPConnector(limit=10)
         timeout = aiohttp.ClientTimeout(total=540)
         async with aiohttp.ClientSession(
             connector=connector, timeout=timeout
@@ -460,11 +459,11 @@ class LinkedinSimpleMessenger(Liaufa):
     page_size = 100
     ordering_key = "updated"
     p_key = ["id"]
-    # incre_key = "updated"
+    incre_key = "updated"
 
     def __init__(self):
-        self.getter = AsyncGetter(self)
-        # self.getter = ReverseGetter(self)
+        # self.getter = AsyncGetter(self)
+        self.getter = ReverseGetter(self)
         super().__init__()
 
     def _transform(self, rows):

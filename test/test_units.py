@@ -18,7 +18,6 @@ from .utils import process
         "Tags",
     ],
 )
-@pytest.mark.timeout(0)
 def test_auto(resource):
     data = {
         "resource": resource,
