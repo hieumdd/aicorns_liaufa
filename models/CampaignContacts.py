@@ -1,5 +1,4 @@
-from models.models import Liaufa
-from models import transform_ts
+from models.models import Liaufa, transform_ts
 from components.getter import SimpleGetter
 
 

@@ -8,9 +8,9 @@ def main(request):
 
     if "tasks" in data:
         response = create_task()
-    elif "resource" in data:
+    elif "table" in data:
         response = Liaufa.factory(
-            data["resource"],
+            data["table"],
         ).run()
     else:
         raise ValueError(data)
