@@ -55,7 +55,8 @@ class Getter(metaclass=ABCMeta):
 
 
 class SimpleGetter(Getter):
-    def get(self, session, headers=get_headers(), page=1):
+    def get(self, session, headers=None, page=1):
+        headers = get_headers() if not headers else headers
         with session.get(
             f"{BASE_URL}/{self.endpoint}",
             params={
@@ -85,14 +86,16 @@ class ReverseGetter(Getter):
         self.ordering_key = model.ordering_key
         self.table = model.table
 
-    def get(self, session, headers=get_headers()):
+    def get(self, session):
         url = f"{BASE_URL}/{self.endpoint}"
         reverse_stop = self._get_reverse_stop()
+        headers = get_headers()
         count = self._get_count(session, url, headers)
         calls_needed = math.ceil(count / self.page_size)
         return self._get(session, url, reverse_stop, calls_needed, headers)
 
-    def _get(self, session, url, reverse_stop, page, headers=get_headers()):
+    def _get(self, session, url, reverse_stop, page, headers=None):
+        headers = get_headers() if not headers else headers
         with session.get(
             url,
             params={
