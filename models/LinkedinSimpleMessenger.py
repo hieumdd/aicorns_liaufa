@@ -4,7 +4,7 @@ from components.getter import ReverseGetter
 
 class LinkedinSimpleMessenger(Liaufa):
     getter = ReverseGetter
-    table = "linkedin_simple-messenger"
+    table = "linkedin_simple_messenger"
     endpoint = "linkedin/simple-messenger/"
     page_size = 100
     ordering_key = "updated"
