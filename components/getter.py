@@ -42,6 +42,8 @@ def get_headers(attempt=0):
                 **CONTENT_TYPE,
                 "Authorization": f"Bearer {access_token}",
             }
+        else:
+            r.raise_for_status()
 
 
 class Getter(metaclass=ABCMeta):
@@ -77,7 +79,7 @@ class SimpleGetter(Getter):
                     page=page + 1,
                 )
             else:
-                raise requests.exceptions.ConnectionError(r.content)
+                r.raise_for_status()
 
 
 class ReverseGetter(Getter):
@@ -122,15 +124,10 @@ class ReverseGetter(Getter):
                 ):
                     next_run = []
                 else:
-                    next_run = self._get(
-                        session,
-                        reverse_stop,
-                        page=page - 1,
-                        headers=headers,
-                    )
+                    next_run = self._get(session, url, reverse_stop, page - 1, headers)
                 return res["results"] + next_run
             else:
-                raise requests.exceptions.ConnectionError(r.content)
+                r.raise_for_status()
 
     def _get_count(self, session, url, headers):
         params = {
