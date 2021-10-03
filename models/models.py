@@ -76,7 +76,7 @@ class Liaufa(metaclass=ABCMeta):
         output_rows = (
             BQ_CLIENT.load_table_from_json(
                 rows,
-                f"{DATASET}._stage_{self.table}",
+                f"{DATASET}.{self.table}",
                 job_config=bigquery.LoadJobConfig(
                     create_disposition="CREATE_IF_NEEDED",
                     write_disposition="WRITE_APPEND",
@@ -99,7 +99,7 @@ class Liaufa(metaclass=ABCMeta):
             SELECT
                 *,
                 ROW_NUMBER() OVER (PARTITION BY {','.join(self.p_key)} {incre_key}) AS row_num
-            FROM {DATASET}._stage_{self.table}
+            FROM {DATASET}.{self.table}
         ) WHERE row_num = 1"""
         BQ_CLIENT.query(query).result()
 
