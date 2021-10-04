@@ -39,6 +39,17 @@ class TestPipelines:
         res = process(data)
         self.assert_pipelines(res)
 
+    @pytest.mark.parametrize(
+        "table",
+        TABLES["delta"],
+    )
+    def test_delta(self, table):
+        data = {
+            "table": table,
+        }
+        res = process(data)
+        self.assert_pipelines(res)
+
 
 def test_tasks():
     data = {

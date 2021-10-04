@@ -147,6 +147,51 @@ class ReverseGetter(Getter):
         return result
 
 
+class DeltaGetter(Getter):
+    def __init__(self, model):
+        super().__init__(model)
+        self.p_key = model.p_key
+        self.table = model.table
+
+    def get(self, session):
+        current_rows = self._get_current_rows()
+        starting_page = math.floor(current_rows / self.page_size)
+        x = self._get(session, starting_page)
+        return x
+
+    def _get(self, session, page, headers=None):
+        headers = get_headers() if not headers else headers
+        with session.get(
+            f"{BASE_URL}/{self.endpoint}",
+            params={
+                "page_size": self.page_size,
+                "page": page,
+            },
+            headers=headers,
+        ) as r:
+            if r.status_code == 404:
+                return []
+            elif r.status_code == 401:
+                return self._get(session, page=page)
+            elif r.status_code == 200:
+                res = r.json()
+                return res.get("results") + self._get(
+                    session,
+                    headers=headers,
+                    page=page + 1,
+                )
+            else:
+                r.raise_for_status()
+
+    def _get_current_rows(self):
+        query = f"""
+        SELECT COUNT(*) AS cnt
+        FROM {DATASET}.{self.table}"""
+        rows = BQ_CLIENT.query(query).result()
+        result = [dict(row.items()) for row in rows][0]["cnt"]
+        return result
+
+
 class AsyncGetter(Getter):
     def __init__(self, model):
         super().__init__(model)

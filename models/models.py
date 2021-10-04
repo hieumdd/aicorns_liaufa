@@ -24,8 +24,10 @@ TABLES = {
         "Tags",
     ],
     "reverse": [
-        # "LinkedinContacts",
         "LinkedinSimpleMessenger",
+    ],
+    "delta": [
+        "LinkedinContacts",
     ],
 }
 

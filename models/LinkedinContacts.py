@@ -1,9 +1,10 @@
 from models.models import Liaufa, transform_ts
-from components.getter import ReverseGetter
+from components.getter import DeltaGetter
 
 
 class LinkedinContacts(Liaufa):
-    getter = ReverseGetter
+    getter = DeltaGetter
+    # getter = ReverseGetter
     table = "linkedin_contacts"
     endpoint = "linkedin/contacts/"
     page_size = 100
