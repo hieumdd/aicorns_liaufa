@@ -32,4 +32,4 @@ jobs:
           --runtime=python39
           --trigger-http
           --service-account=${{ secrets.GCP_SA }}
-          --set-env-vars=USERNAME=${{ secrets.USERNAME }},API_PWD=${{ secrets.API_PWD }},PROJECT_ID=${{ secrets.PROJECT_ID }},PUBLIC_URL=${{ secrets.PUBLIC_URL }},GCP_SA=${{ secrets.GCP_SA }},REGION={{ env.REGION }}
+          --set-env-vars=USERNAME=${{ secrets.USERNAME }},API_PWD=${{ secrets.API_PWD }},PROJECT_ID=${{ secrets.PROJECT_ID }},PUBLIC_URL=${{ secrets.PUBLIC_URL }},GCP_SA=${{ secrets.GCP_SA }},REGION=${{ env.REGION }}
