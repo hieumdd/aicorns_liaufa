@@ -156,8 +156,7 @@ class DeltaGetter(Getter):
     def get(self, session):
         current_rows = self._get_current_rows()
         starting_page = math.floor(current_rows / self.page_size)
-        x = self._get(session, starting_page)
-        return x
+        return self._get(session, starting_page)
 
     def _get(self, session, page, headers=None):
         headers = get_headers() if not headers else headers

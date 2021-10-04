@@ -4,7 +4,6 @@ from components.getter import DeltaGetter
 
 class LinkedinContacts(Liaufa):
     getter = DeltaGetter
-    # getter = ReverseGetter
     table = "linkedin_contacts"
     endpoint = "linkedin/contacts/"
     page_size = 100
