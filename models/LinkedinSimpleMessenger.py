@@ -1,9 +1,10 @@
 from models.models import Liaufa, transform_ts
-from components.getter import ReverseGetter
+from components.getter import ReverseGetter, AsyncGetter
 
 
 class LinkedinSimpleMessenger(Liaufa):
     getter = ReverseGetter
+    # getter = AsyncGetter
     table = "linkedin_simple_messenger"
     endpoint = "linkedin/simple-messenger/"
     page_size = 100

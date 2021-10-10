@@ -32,6 +32,7 @@ class TestPipelines:
         "table",
         TABLES["reverse"],
     )
+    @pytest.mark.timeout(0)
     def test_reverse(self, table):
         data = {
             "table": table,

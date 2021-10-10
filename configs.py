@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from google.cloud import bigquery
 
@@ -12,3 +12,4 @@ TIMESTAMP_FORMAT = "%Y-%m-%dT%H:%M:%S%z"
 
 BQ_CLIENT = bigquery.Client()
 DATASET = "Liaufa"
+MIN_TIMESTAMP = datetime(2018, 1, 1, tzinfo=timezone.utc)

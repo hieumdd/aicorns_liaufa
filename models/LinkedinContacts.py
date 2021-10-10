@@ -1,9 +1,10 @@
 from models.models import Liaufa, transform_ts
-from components.getter import DeltaGetter
+from components.getter import DeltaGetter, AsyncGetter
 
 
 class LinkedinContacts(Liaufa):
     getter = DeltaGetter
+    # getter = AsyncGetter
     table = "linkedin_contacts"
     endpoint = "linkedin/contacts/"
     page_size = 100

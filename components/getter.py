@@ -9,14 +9,55 @@ import time
 import requests
 import aiohttp
 
-from configs import BASE_URL, CONTENT_TYPE, TIMESTAMP_FORMAT, BQ_CLIENT, DATASET
+from configs import (
+    BASE_URL,
+    CONTENT_TYPE,
+    TIMESTAMP_FORMAT,
+    BQ_CLIENT,
+    DATASET,
+    MIN_TIMESTAMP,
+)
 
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 
 def get_headers(attempt=0):
-    with requests.post(
+    try:
+        with requests.post(
+            url=f"{BASE_URL}/token/",
+            params={
+                "h": "https://app.aicorns.com",
+            },
+            json={
+                "username": os.getenv("USERNAME"),
+                "password": os.getenv("API_PWD"),
+            },
+            headers={
+                **CONTENT_TYPE,
+            },
+        ) as r:
+            if r.status_code == 429:
+                if attempt < 5:
+                    time.sleep(5)
+                    return get_headers(attempt + 1)
+                elif attempt >= 5:
+                    raise Exception("Too many attempts")
+            elif r.status_code == 200:
+                res = r.json()
+                access_token = res["access"]
+                return {
+                    **CONTENT_TYPE,
+                    "Authorization": f"Bearer {access_token}",
+                }
+            else:
+                r.raise_for_status()
+    except requests.exceptions.SSLError:
+        return get_headers(attempt + 1)
+
+
+async def get_headers_async(session):
+    async with session.post(
         url=f"{BASE_URL}/token/",
         params={
             "h": "https://app.aicorns.com",
@@ -29,14 +70,11 @@ def get_headers(attempt=0):
             **CONTENT_TYPE,
         },
     ) as r:
-        if r.status_code == 429:
-            if attempt < 5:
-                time.sleep(5)
-                return get_headers(attempt + 1)
-            elif attempt >= 5:
-                raise Exception("Too many attempts")
-        elif r.status_code == 200:
-            res = r.json()
+        if r.status == 429:
+            await asyncio.sleep(5)
+            return await get_headers_async(session)
+        elif r.status == 200:
+            res = await r.json()
             access_token = res["access"]
             return {
                 **CONTENT_TYPE,
@@ -59,6 +97,7 @@ class Getter(metaclass=ABCMeta):
 class SimpleGetter(Getter):
     def get(self, session, headers=None, page=1):
         headers = get_headers() if not headers else headers
+        print(page)
         with session.get(
             f"{BASE_URL}/{self.endpoint}",
             params={
@@ -130,11 +169,14 @@ class ReverseGetter(Getter):
                 r.raise_for_status()
 
     def _get_count(self, session, url, headers):
-        params = {
-            "page_size": 1,
-            "page": 1,
-        }
-        with session.get(url, params=params, headers=headers) as r:
+        with session.get(
+            url,
+            params={
+                "page_size": 1,
+                "page": 1,
+            },
+            headers=headers,
+        ) as r:
             res = r.json()
         return res["count"]
 
@@ -144,7 +186,7 @@ class ReverseGetter(Getter):
         FROM {DATASET}.{self.table}"""
         rows = BQ_CLIENT.query(query).result()
         result = [dict(row.items()) for row in rows][0]["max_incre"]
-        return result
+        return result if result else MIN_TIMESTAMP
 
 
 class DeltaGetter(Getter):
@@ -196,36 +238,42 @@ class AsyncGetter(Getter):
         super().__init__(model)
         self.ordering_key = model.ordering_key
 
-    def get(self):
+    def get(self, session):
         url = f"{BASE_URL}/{self.endpoint}"
-        return asyncio.run(self._get(url))
 
-    async def _get(self, url):
-        connector = aiohttp.TCPConnector(limit=10)
-        timeout = aiohttp.ClientTimeout(total=540)
-        async with aiohttp.ClientSession(
-            connector=connector, timeout=timeout
-        ) as session:
-            headers = await get_headers()
-            count = await self._get_count(session, url, headers)
-            calls_needed = math.ceil(count / self.page_size)
-            tasks = [
-                asyncio.create_task(self._get_one(session, url, headers, i))
-                for i in range(1, calls_needed + 1)
-            ]
-            rows = await asyncio.gather(*tasks)
-        rows = [item for sublist in rows for item in sublist]
-        return rows
+        async def get_async():
+            connector = aiohttp.TCPConnector(limit=10)
+            timeout = aiohttp.ClientTimeout(total=3600)
+            async with aiohttp.ClientSession(
+                connector=connector, timeout=timeout
+            ) as session:
+                headers = get_headers()
+                count = await self._get_count(session, url, headers)
+                calls_needed = math.ceil(count / self.page_size)
+                tasks = [
+                    asyncio.create_task(self._get_one(session, url, headers, i))
+                    # for i in range(1, calls_needed + 1)
+                    for i in range(900, 960)
+                    # for i in range(1, calls_needed + 1)
+                    # for i in range(1, calls_needed + 1)
+                    # for i in range(1, calls_needed + 1)
+                ]
+                rows = await asyncio.gather(*tasks)
+                return [i for j in rows for i in j]
+
+        return asyncio.run(get_async())
 
     async def _get_count(self, session, url, headers):
-        params = {
-            "page_size": 1,
-            "page": 1,
-        }
-        async with session.get(url, params=params, headers=headers) as r:
+        async with session.get(
+            url,
+            params={
+                "page_size": 1,
+                "page": 1,
+            },
+            headers=headers,
+        ) as r:
             res = await r.json()
-        count = res["count"]
-        return count
+        return res["count"]
 
     async def _get_one(self, session, url, headers, i):
         params = {
@@ -242,19 +290,15 @@ class AsyncGetter(Getter):
                 headers=_headers,
             ) as r:
                 if r.status == 401:
-                    _headers = await get_headers()
+                    print(i, 401)
+                    _headers = await get_headers_async(session)
                     continue
                 elif r.status == 404:
-                    results = []
-                    break
+                    print(i, 404)
+                    return []
+                elif r.status == 502:
+                    print(i, 502)
+                    continue
                 else:
                     res = await r.json()
-                    results = res["results"]
-                    break
-        results = [
-            {
-                **result,
-            }
-            for result in results
-        ]
-        return results
+                    return res["results"]
